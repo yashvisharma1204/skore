@@ -4,6 +4,7 @@ import pytest
 from sklearn.compose import ColumnTransformer
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.model_selection import KFold, TimeSeriesSplit, train_test_split
+
 from sklearn.pipeline import Pipeline
 from skrub import DatetimeEncoder
 
@@ -111,4 +112,15 @@ def test_not_applicable_when_x_test_is_not_a_dataframe():
         y_test=y_test,
     )
     with pytest.raises(CheckNotApplicable, match="Got ndarray"):
+        CheckTrainTestTimeOverlap().check_function(report)
+
+
+def test_not_applicable_when_x_train_is_none():
+    """SKD013 raises CheckNotApplicable when X_train is unavailable."""
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(100, 3))
+    y = rng.normal(size=100)
+    estimator = LinearRegression().fit(X[:80], y[:80])
+    report = EstimatorReport(estimator, X_test=X[80:], y_test=y[80:])
+    with pytest.raises(CheckNotApplicable, match="Train data is unavailable"):
         CheckTrainTestTimeOverlap().check_function(report)
