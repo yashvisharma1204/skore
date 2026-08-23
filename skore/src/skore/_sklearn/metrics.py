@@ -685,6 +685,51 @@ class RecallAvg(Recall):
         return report._ml_task == "multiclass-classification"
 
 
+class F1Score(Metric):
+    name = "f1"
+    verbose_name = "F1 Score"
+    function = staticmethod(sklearn.metrics.f1_score)
+    response_method = "predict"
+    greater_is_better = True
+    function_kind = FunctionKind.METRIC
+    kwargs = {"average": None}
+
+    @staticmethod
+    def available(report: EstimatorReport) -> bool:
+        return report._ml_task in ("binary-classification", "multiclass-classification")
+
+    def _raw(self, *, report: EstimatorReport, data_source="test", **kwargs):
+        if report._ml_task == "binary-classification":
+            if kwargs["average"] is None and report.pos_label is not None:
+                kwargs["average"] = "binary"
+            elif kwargs["average"] != "binary":
+                kwargs["pos_label"] = None
+
+        return super()._raw(report=report, data_source=data_source, **kwargs)
+
+
+class F1ScoreAvg(F1Score):
+    name = "f1_avg"
+    kwargs = {"average": "macro"}
+
+    @staticmethod
+    def available(report: EstimatorReport) -> bool:
+        return report._ml_task == "multiclass-classification"
+
+
+class MCC(Metric):
+    name = "matthews_corrcoef"
+    verbose_name = "MCC"
+    function = staticmethod(sklearn.metrics.matthews_corrcoef)
+    response_method = "predict"
+    greater_is_better = True
+    function_kind = FunctionKind.METRIC
+
+    @staticmethod
+    def available(report: EstimatorReport) -> bool:
+        return report._ml_task in ("binary-classification", "multiclass-classification")
+
+
 class Brier(Metric):
     name = "brier_score"
     verbose_name = "Brier score"
@@ -865,6 +910,9 @@ BUILTIN_METRICS: list[Metric] = [
     PrecisionAvg(),
     Recall(),
     RecallAvg(),
+    F1Score(),
+    F1ScoreAvg(),
+    MCC(),
     RocAuc(),
     RocAucAvg(),
     LogLoss(),

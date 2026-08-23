@@ -677,13 +677,11 @@ class TestStringScorerNames:
         """Test adding a metric using its sklearn string name."""
         report = binary_classification_report
 
-        report.metrics.add("f1")
-        assert "f1" in report._metric_registry
+        report.metrics.add("f1_micro")
+        assert "f1_micro" in report._metric_registry
 
-        # NOTE: User can pass "f1", not "f1_score" which is the name of the actual
-        # metric function
-        display = report.metrics.summarize(metric="f1")
-        metric_rows = display.summary[display.summary["verbose_name"] == "F1"]
+        display = report.metrics.summarize(metric="f1_micro")
+        metric_rows = display.summary[display.summary["verbose_name"] == "F1 Micro"]
 
         assert len(metric_rows) == 1
 
@@ -694,12 +692,12 @@ class TestStringScorerNames:
         display = report.metrics.summarize()
         metrics_before = set(display.summary["verbose_name"])
 
-        report.metrics.add("f1")
+        report.metrics.add("f1_micro")
 
         display = report.metrics.summarize()
         metrics_after = set(display.summary["verbose_name"])
 
-        assert metrics_after - metrics_before == {"F1"}
+        assert metrics_after - metrics_before == {"F1 Micro"}
 
     def test_neg_scorer(self, regression_report):
         """Test that neg_* scorers have correct sign, direction, and display name."""

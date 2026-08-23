@@ -313,3 +313,172 @@ def test_custom_metric_as_method_neg(binary_classification_report):
 
     report.metrics.add("mean_squared_error")
     assert report.metrics.mean_squared_error() == 0
+
+
+# F1 Score and MCC
+
+
+def test_f1_mcc_in_builtin_metrics(
+    logistic_binary_classification_with_train_test,
+):
+    """F1 and MCC are available by default without calling add()."""
+    estimator, X_train, X_test, y_train, y_test = (
+        logistic_binary_classification_with_train_test
+    )
+    report = EstimatorReport(
+        estimator, X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test
+    )
+    assert "f1" in report.metrics.available()
+    assert "matthews_corrcoef" in report.metrics.available()
+
+
+def test_f1_binary_no_pos_label_returns_per_class_dict(
+    logistic_binary_classification_with_train_test,
+):
+    """Without pos_label, f1 returns a per-class dict for binary classification."""
+    estimator, X_train, X_test, y_train, y_test = (
+        logistic_binary_classification_with_train_test
+    )
+    report = EstimatorReport(
+        estimator, X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test
+    )
+    result = report.metrics.f1()
+    assert isinstance(result, dict)
+    assert set(result.keys()) == {0, 1}
+
+
+def test_f1_binary_with_pos_label_returns_float(
+    logistic_binary_classification_with_train_test,
+):
+    """With pos_label set, f1 returns a single float for binary classification."""
+    estimator, X_train, X_test, y_train, y_test = (
+        logistic_binary_classification_with_train_test
+    )
+    report = EstimatorReport(
+        estimator,
+        X_train=X_train,
+        y_train=y_train,
+        X_test=X_test,
+        y_test=y_test,
+        pos_label=1,
+    )
+    result = report.metrics.f1()
+    assert isinstance(result, float)
+
+
+def test_f1_binary_pos_label_matches_sklearn(
+    logistic_binary_classification_with_train_test,
+):
+    """f1 with pos_label matches sklearn's f1_score directly."""
+    from sklearn.metrics import f1_score
+
+    estimator, X_train, X_test, y_train, y_test = (
+        logistic_binary_classification_with_train_test
+    )
+    report = EstimatorReport(
+        estimator,
+        X_train=X_train,
+        y_train=y_train,
+        X_test=X_test,
+        y_test=y_test,
+        pos_label=1,
+    )
+    expected = f1_score(
+        y_test, report.estimator_.predict(X_test), pos_label=1, average="binary"
+    )
+    assert report.metrics.f1() == pytest.approx(expected)
+
+
+def test_f1_multiclass_returns_per_class_dict(
+    logistic_multiclass_classification_with_train_test,
+):
+    """f1 returns a per-class dict for multiclass classification."""
+    estimator, X_train, X_test, y_train, y_test = (
+        logistic_multiclass_classification_with_train_test
+    )
+    report = EstimatorReport(
+        estimator, X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test
+    )
+    result = report.metrics.f1()
+    assert isinstance(result, dict)
+    assert len(result) == len(set(y_test))
+
+
+def test_f1_avg_only_for_multiclass(
+    logistic_binary_classification_with_train_test,
+    logistic_multiclass_classification_with_train_test,
+):
+    """f1_avg (macro) is only available for multiclass, not binary."""
+    estimator, X_train, X_test, y_train, y_test = (
+        logistic_binary_classification_with_train_test
+    )
+    binary_report = EstimatorReport(
+        estimator, X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test
+    )
+    assert "f1_avg" not in binary_report.metrics.available()
+
+    estimator, X_train, X_test, y_train, y_test = (
+        logistic_multiclass_classification_with_train_test
+    )
+    multi_report = EstimatorReport(
+        estimator, X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test
+    )
+    assert "f1_avg" in multi_report.metrics.available()
+    assert isinstance(multi_report.metrics.f1_avg(), float)
+
+
+def test_mcc_returns_float(logistic_binary_classification_with_train_test):
+    """MCC returns a scalar float for binary classification."""
+    estimator, X_train, X_test, y_train, y_test = (
+        logistic_binary_classification_with_train_test
+    )
+    report = EstimatorReport(
+        estimator, X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test
+    )
+    result = report.metrics.matthews_corrcoef()
+    assert isinstance(result, float)
+
+
+def test_mcc_matches_sklearn(logistic_binary_classification_with_train_test):
+    """MCC matches sklearn's matthews_corrcoef directly."""
+    from sklearn.metrics import matthews_corrcoef
+
+    estimator, X_train, X_test, y_train, y_test = (
+        logistic_binary_classification_with_train_test
+    )
+    report = EstimatorReport(
+        estimator, X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test
+    )
+    expected = matthews_corrcoef(y_test, report.estimator_.predict(X_test))
+    assert report.metrics.matthews_corrcoef() == pytest.approx(expected)
+
+
+def test_mcc_not_available_for_regression(linear_regression_with_train_test):
+    """MCC is not available for regression tasks."""
+    estimator, X_train, X_test, y_train, y_test = linear_regression_with_train_test
+    report = EstimatorReport(
+        estimator, X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test
+    )
+    assert "matthews_corrcoef" not in report.metrics.available()
+
+
+def test_f1_macro_average_ignores_pos_label(
+    logistic_binary_classification_with_train_test,
+):
+    """Macro-averaged f1 does not forward pos_label (mirrors precision/recall test)."""
+    import warnings
+
+    estimator, X_train, X_test, y_train, y_test = (
+        logistic_binary_classification_with_train_test
+    )
+    X, y = X_test, y_test
+    y = np.array(["negative", "positive"], dtype=object)[y]
+    classifier = LogisticRegression(max_iter=1000).fit(X_train, y_train)
+    classifier = LogisticRegression(max_iter=1000).fit(X, y)
+    report = EstimatorReport(classifier, X_test=X, y_test=y, pos_label="positive")
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
+        result = report.metrics.f1(average="macro")
+
+    assert isinstance(result, float)
