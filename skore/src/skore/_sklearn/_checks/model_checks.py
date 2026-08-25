@@ -486,22 +486,40 @@ class CheckCorrelatedFeatures(Check):
                 f"got {X.shape[1]}."
             )
 
+        columns = X.columns
         corr_statistic = spearmanr(X.to_numpy()).statistic
         if X.shape[1] == 2:
             # With exactly 2 features, spearmanr returns a scalar, not a matrix.
-            n_pairs = int(float(np.abs(corr_statistic)) >= 0.9)
+            correlated_pairs = (
+                [(columns[0], columns[1])]
+                if float(np.abs(corr_statistic)) >= 0.9
+                else []
+            )
         else:
             corr = np.abs(corr_statistic)
             np.fill_diagonal(corr, 0)
-            n_pairs = int(np.count_nonzero(corr >= 0.9) // 2)
+            row_idx, col_idx = np.where(corr >= 0.9)
+            correlated_pairs = [
+                (columns[r], columns[c])
+                for r, c in zip(row_idx, col_idx, strict=True)
+                if r < c
+            ]
 
-        if n_pairs:
+        if correlated_pairs:
+            top = correlated_pairs[:3]
+            pairs_str = ", ".join(f"({a} \u2194 {b})" for a, b in top)
+            suffix = (
+                f" (and {len(correlated_pairs) - 3} more)"
+                if len(correlated_pairs) > 3
+                else ""
+            )
             return (
-                f"{n_pairs} pair(s) of features have a Spearman correlation "
-                "above 0.9. Highly correlated features can destabilize "
-                "linear model coefficients and feature-importance estimates, "
-                "and may cause collinearity-induced numerical issues."
-                "Dropping redundant features may also improve model performance."
+                f"{len(correlated_pairs)} pair(s) of features have a Spearman "
+                f"correlation above 0.9: {pairs_str}{suffix}. Highly correlated "
+                "features can destabilize linear model coefficients and "
+                "feature-importance estimates, and may cause collinearity-induced "
+                "numerical issues. Dropping redundant features may also improve "
+                "model performance."
             )
         return None
 
